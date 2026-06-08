@@ -1,1 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My osu! Progress • Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .stat-card { transition: all 0.2s ease; }
+        .improvement-positive { color: #4ade80; }
+        .improvement-negative { color: #f87171; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-white">
+    <!-- Header -->
+    <div class="border-b border-zinc-800 bg-zinc-900/50">
+        <div class="max-w-4xl mx-auto px-6 py-5 flex items-center justify-between">
+            <div class="flex items-center gap-x-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl flex items-center justify-center">
+                    <span class="text-2xl">🎵</span>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">My osu! Progress</h1>
+                    <p class="text-xs text-zinc-500 -mt-0.5">Personal Score Tracker</p>
+                </div>
+            </div>
+            <button onclick="showSettings()" 
+                    class="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-2xl flex items-center gap-x-2 transition-colors">
+                <span>⚙️</span>
+                <span>Settings</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-6 py-8">
+        
+        <!-- Setup / Profile -->
+        <div id="setup-section" class="mb-8">
+            <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8 text-center">
+                <h2 class="text-3xl font-bold tracking-tight mb-2">Track your personal scores</h2>
+                <p class="text-zinc-400 mb-6">See your real improvement over time (especially in osu!mania)</p>
+                
+                <div class="max-w-md mx-auto space-y-4">
+                    <div>
+                        <label class="block text-left text-sm text-zinc-400 mb-1.5">Your osu! Username</label>
+                        <input id="username-input" type="text" placeholder="e.g. YourName" 
+                               class="w-full bg-zinc-950 border border-zinc-700 px-5 py-3.5 rounded-2xl text-lg outline-none">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-left text-sm text-zinc-400 mb-1.5">Game Mode</label>
+                        <select id="mode-select" class="w-full bg-zinc-950 border border-zinc-700 px-5 py-3.5 rounded-2xl text-lg outline-none">
+                            <option value="mania">osu!mania (recommended)</option>
+                            <option value="osu">osu! (Standard)</option>
+                            <option value="taiko">osu!taiko</option>
+                            <option value="catch">osu!catch</option>
+                        </select>
+                    </div>
+                    
+                    <button onclick="saveProfile()" 
+                            class="w-full py-4 bg-pink-600 hover:bg-pink-500 rounded-2xl font-semibold text-lg transition-all active:scale-[0.985]">
+                        Start Tracking My Scores
+                    </button>
+                </div>
+                
+                <p class="text-xs text-zinc-500 mt-4">You'll need an osu! API key for real data (free)</p>
+            </div>
+        </div>
+
+        <!-- Main Progress Dashboard (hidden until profile is set) -->
+        <div id="dashboard" class="hidden">
+            
+            <!-- Profile Header -->
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <div class="flex items-center gap-x-3">
+                        <h2 id="profile-username" class="text-4xl font-bold tracking-tight"></h2>
+                        <span id="profile-mode" class="px-4 py-1 text-sm rounded-full font-semibold bg-purple-600"></span>
+                    </div>
+                    <p class="text-zinc-400">Last updated: <span id="last-updated"></span></p>
+                </div>
+                <button onclick="refreshMyStats()" 
+                        class="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-semibold flex items-center gap-x-2 transition-all active:scale-[0.985]">
+                    <span>⟳</span>
+                    <span>Refresh My Stats</span>
+                </button>
+            </div>
+
+            <!-- Current Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-6 stat-card">
+                    <div class="text-xs text-zinc-400 tracking-wider">PERFORMANCE POINTS</div>
+                    <div id="current-pp" class="text-6xl font-bold tracking-tighter text-pink-400 mt-2 font-mono"></div>
+                    <div id="pp-change" class="text-sm mt-1"></div>
+                </div>
+                
+                <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-6 stat-card">
+                    <div class="text-xs text-zinc-400 tracking-wider">GLOBAL RANK</div>
+                    <div id="current-rank" class="text-6xl font-bold tracking-tighter mt-2 font-mono"></div>
+                    <div id="rank-change" class="text-sm mt-1"></div>
+                </div>
+                
+                <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-6 stat-card">
+                    <div class="text-xs text-zinc-400 tracking-wider">ACCURACY</div>
+                    <div id="current-acc" class="text-6xl font-bold tracking-tighter text-emerald-400 mt-2"></div>
+                    <div id="acc-change" class="text-sm mt-1"></div>
+                </div>
+                
+                <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-6 stat-card">
+                    <div class="text-xs text-zinc-400 tracking-wider">PLAY COUNT</div>
+                    <div id="current-plays" class="text-6xl font-bold tracking-tighter mt-2 font-mono"></div>
+                </div>
+            </div>
+
+            <!-- Improvement History -->
+            <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-2xl font-bold tracking-tight">Improvement History</h3>
+                        <p class="text-sm text-zinc-400">Your progress over time</p>
+                    </div>
+                    <div id="history-count" class="text-xs px-3 py-1 bg-zinc-800 rounded-full"></div>
+                </div>
+
+                <!-- Chart -->
+                <div class="h-72 mb-8">
+                    <canvas id="progress-chart"></canvas>
+                </div>
+
+                <!-- History Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-zinc-700 text-xs text-zinc-400">
+                                <th class="text-left py-3 font-normal">Date</th>
+                                <th class="text-right py-3 font-normal">PP</th>
+                                <th class="text-right py-3 font-normal">Rank</th>
+                                <th class="text-right py-3 font-normal">Acc</th>
+                                <th class="text-right py-3 font-normal">Change</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table" class="divide-y divide-zinc-800">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <p class="text-center text-xs text-zinc-500 mt-6">Refresh regularly after playing to see your improvement</p>
+            </div>
+
+            <!-- Recent Plays / Songs Played -->
+            <div class="mt-8 bg-zinc-900 border border-zinc-700 rounded-3xl p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-2xl font-bold tracking-tight">Recent Plays</h3>
+                        <p class="text-sm text-zinc-400">Songs and maps you've played + scores</p>
+                    </div>
+                    <div id="recent-count" class="text-xs px-3 py-1 bg-zinc-800 rounded-full"></div>
+                </div>
+
+                <div id="recent-plays-list" class="space-y-3">
+                    <!-- Populated dynamically by JS -->
+                    <div class="text-center py-8 text-zinc-500 text-sm">No recent plays yet. Refresh to load your played maps and scores.</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" onclick="if (event.target.id === 'settings-modal') closeSettings()" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+        <div onclick="event.stopImmediatePropagation()" class="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-md w-full p-8">
+            <h3 class="text-2xl font-bold mb-6">Settings</h3>
+            
+            <div class="space-y-6">
+                <div>
+                    <label class="text-sm text-zinc-400 block mb-2">osu! API Key (for real data)</label>
+                    <input id="api-key-input" type="text" class="w-full bg-zinc-950 border border-zinc-700 px-4 py-3 rounded-2xl text-sm font-mono">
+                    <p class="text-xs text-zinc-500 mt-1">Get it at <a href="https://osu.ppy.sh/p/api" target="_blank" class="text-pink-400">osu.ppy.sh/p/api</a></p>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button onclick="saveApiKey()" class="flex-1 py-3 bg-pink-600 hover:bg-pink-500 rounded-2xl font-semibold">Save Key</button>
+                    <button onclick="clearApiKey()" class="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-semibold">Remove Key</button>
+                </div>
+            </div>
+            
+            <button onclick="closeSettings()" class="mt-6 w-full py-3 text-sm text-zinc-400 hover:text-white">Close</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
 
